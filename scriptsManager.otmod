@@ -1,0 +1,15 @@
+Module
+  name: scriptsManager-mod
+  description: Scripts Manager 0.1
+  author: Andre Ricca da Costa (Faramir)
+  website: http://server.tibiarpgbrasil.com
+
+  autoload: true
+  autoload-priority: 1000
+
+  @onLoad: |
+    dofile 'scriptsManager.lua'
+    ScriptsManager.init()
+
+  @onUnload: |
+    ScriptsManager.terminate()

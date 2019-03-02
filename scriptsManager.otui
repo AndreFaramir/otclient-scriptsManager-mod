@@ -1,0 +1,90 @@
+ScriptBox < Panel
+  height: 30
+  margin-top: 2
+  anchors.left: parent.left
+  anchors.right: parent.right
+  anchors.top: prev.bottom  
+  
+  CheckBox
+    id: statusCheck
+    margin-left: 10
+    checked: false
+    anchors.top: parent.top
+    anchors.left: parent.left
+    @onCheckChange: ScriptsManager.scriptBoxSet(self, self:isChecked())
+
+  Label
+    id: numberId
+    text: #UKN
+    margin-left: 5
+    width: 30
+    anchors.top: parent.top
+    anchors.left: statusCheck.right
+    
+  TextEdit
+    id: listasText
+    margin-left: 10
+    anchors.top: statusCheck.top
+    anchors.left: prev.right
+    width: 100
+    
+  TextEdit
+    id: scriptText
+    margin-left: 15
+    anchors.top: statusCheck.top
+    anchors.left: prev.right
+    anchors.right: parent.right    
+    
+MainWindow
+  id: scriptsManagerWindow
+  text: Scripts Manager
+  size: 700 550
+  @onClose: ScriptsManager.close()
+
+  Label
+    id: activateLabel
+    text: Activate 
+    text-auto-resize: true
+    margin-top: 10
+    anchors.top: parent.top
+    anchors.left: parent.left
+
+  Label
+    id: listasLabel
+    text: List As
+    text-auto-resize: true
+    margin-left: 20
+    anchors.top: prev.top
+    anchors.left: prev.right
+
+  Label
+    id: scriptLabel
+    text: Script (cycleEvent)
+    text-auto-resize: true
+    margin-left: 70
+    anchors.top: prev.top
+    anchors.left: prev.right
+
+  VerticalScrollBar
+    id: scriptsScrollBar
+    anchors.top: prev.bottom
+    anchors.bottom: parent.bottom
+    anchors.right: parent.right
+    margin-bottom: 50
+    step: 30
+    pixels-scroll: true
+  
+  ScrollablePanel
+    id: scriptsPanel
+    anchors.top: scriptsScrollBar.top
+    anchors.bottom: scriptsScrollBar.bottom
+    anchors.left: parent.left
+    anchors.right: scriptsScrollBar.left
+    vertical-scrollbar: scriptsScrollBar  
+    border: 1 black
+      
+  Button
+    text: Close
+    anchors.bottom: parent.bottom
+    anchors.right: parent.right
+    @onClick: ScriptsManager.close()
