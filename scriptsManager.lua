@@ -5,7 +5,9 @@ ScriptsManager = {}
 local scriptsManagerWindow
 local scriptsManagerPanel
 local scriptsManagerButton
-local scriptsManagerEvents = {}
+
+scriptsManagerEvents = {}
+scriptsManagerLastId = 0
 
 function ScriptsManager.init()					
 	scriptsManagerButton = modules.client_topmenu.addLeftButton('scriptsManagerButton', 'Scripts Manager', 'scriptsManager.png', ScriptsManager.popupMenu)
@@ -14,7 +16,7 @@ function ScriptsManager.init()
 	scriptsManagerWindow:hide()
 
 	scriptsManagerPanel = scriptsManagerWindow:getChildById('scriptsPanel')
-	for id = 1, 20 do
+	for id = 1, 50 do
 		local scriptBox = g_ui.createWidget('ScriptBox', scriptsManagerPanel)
 		scriptBox.scriptId = id
 		scriptBox:setId('script_' .. id)
@@ -42,6 +44,7 @@ function ScriptsManager.terminate()
 	scriptsManagerPanel:destroy()
 	scriptsManagerPanel = nil	
 	scriptsManagerEvents = {}
+	scriptsManagerLastId = 0
 end
 
 function ScriptsManager.popupMenu()
@@ -111,29 +114,28 @@ function ScriptsManager.load()
 	end
 end
 
--- window handlers
-function ScriptsManager.close()
-	ScriptsManager.save()
-	ScriptsManager.hide()
-end
-
-function ScriptsManager.hookTemplate(funcHook, funcName, ...)
-	return {func = funcHook, args = {...}, name = funcName, ret = funcHook(...)}
-end
-
+-- script's execution functions
+local hookFunctions = {"cycleEvent", {"_bindKeyPress","g_keyboard.bindKeyPress"}, "onTalkContains"}
 function ScriptsManager.hook()
-	_cycleEvent = cycleEvent
-	cycleEvent = function(...) return ScriptsManager.hookTemplate(_cycleEvent, "cycleEvent", ...) end
-	_onTalkContains = onTalkContains
-	onTalkContains = function(...) return ScriptsManager.hookTemplate(_onTalkContains, "onTalkContains", ...) end
-	_bindKeyPress = g_keyboard.bindKeyPress
-	g_keyboard.bindKeyPress = function(...) return ScriptsManager.hookTemplate(_bindKeyPress, "g_keyboard.bindKeyPress", ...) end
+	for i,fname in pairs(hookFunctions) do
+		if type(fname) == "table" then
+			loadstring(fname[1] .. " = " .. fname[2])()
+			loadstring(fname[2] .. " = function(...) scriptsManagerEvents[scriptsManagerLastId] = {func = ".. fname[1] ..", args = {...}, name = \"".. fname[2] .."\", ret = ".. fname[1] .."(...)} end")()
+		else
+			loadstring("_" .. fname .. " = " .. fname)()
+			loadstring(fname .. " = function(...) scriptsManagerEvents[scriptsManagerLastId] = {func = _".. fname ..", args = {...}, name = \"".. fname .."\", ret = _".. fname .."(...)} end")()
+		end
+	end
 end
 
 function ScriptsManager.unhook()
-	cycleEvent = _cycleEvent
-	onTalkContains = _onTalkContains
-	g_keyboard.bindKeyPress = _bindKeyPress
+	for i,fname in pairs(hookFunctions) do
+		if type(fname) == "table" then
+			loadstring(fname[2] .. " = " .. fname[1])()
+		else
+			loadstring(fname .. " = _" .. fname)()
+		end
+	end
 end
 
 function ScriptsManager.call(func)
@@ -141,6 +143,12 @@ function ScriptsManager.call(func)
 	local success, ret = pcall(func)
 	ScriptsManager.unhook()
 	return ret
+end
+
+-- window handlers
+function ScriptsManager.close()
+	ScriptsManager.save()
+	ScriptsManager.hide()
 end
 
 function ScriptsManager.scriptBoxSet(widget, option)	
@@ -151,9 +159,10 @@ function ScriptsManager.scriptBoxSet(widget, option)
 	local script = scriptWidget:getText()
 	if option == true then
 		if script ~= '' then
-			local ret = loadstring("return " .. script)
+			local ret = loadstring(script)
 			if type(ret) == "function" then
-				scriptsManagerEvents[id] = ScriptsManager.call(ret)
+				scriptsManagerLastId = id
+				ScriptsManager.call(ret)
 			else
 				displayErrorBox("Scripts Manager", "Error script #".. id .." could not be run.")
 				option = false
