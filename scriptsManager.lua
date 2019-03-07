@@ -1,3 +1,5 @@
+dofile('utils.lua')
+
 ScriptsManager = {}
 
 local scriptsManagerWindow
@@ -5,43 +7,40 @@ local scriptsManagerPanel
 local scriptsManagerButton
 local scriptsManagerEvents = {}
 
-function ScriptsManager.init()
-  connect(g_game, { onGameStart = ScriptsManager.online,
-					onGameEnd = ScriptsManager.offline})
-					
-  scriptsManagerButton = modules.client_topmenu.addLeftButton('scriptsManagerButton', 'Scripts Manager', 'scriptsManager.png', ScriptsManager.popupMenu)
+function ScriptsManager.init()					
+	scriptsManagerButton = modules.client_topmenu.addLeftButton('scriptsManagerButton', 'Scripts Manager', 'scriptsManager.png', ScriptsManager.popupMenu)
 
-  scriptsManagerWindow = g_ui.displayUI('scriptsManager.otui')
-  scriptsManagerWindow:hide()
+	scriptsManagerWindow = g_ui.displayUI('scriptsManager.otui')
+	scriptsManagerWindow:hide()
 
-  scriptsManagerPanel = scriptsManagerWindow:getChildById('scriptsPanel')
-  for id = 1, 20 do
-  	local scriptBox = g_ui.createWidget('ScriptBox', scriptsManagerPanel)
-  	scriptBox.scriptId = id
-  	scriptBox:setId('script_' .. id)
-  	scriptBox:getChildById('numberId'):setText('#'..id)
-  	if id == 1 then
-  		scriptBox:addAnchor(AnchorTop, 'parent', AnchorTop)
-  	end
-  end
+	scriptsManagerPanel = scriptsManagerWindow:getChildById('scriptsPanel')
+	for id = 1, 20 do
+		local scriptBox = g_ui.createWidget('ScriptBox', scriptsManagerPanel)
+		scriptBox.scriptId = id
+		scriptBox:setId('script_' .. id)
+		scriptBox:getChildById('numberId'):setText('#'..id)
+		if id == 1 then
+			scriptBox:addAnchor(AnchorTop, 'parent', AnchorTop)
+		end
+	end
 
-  ScriptsManager.load()
+	ScriptsManager.load()
 end
 
-function ScriptsManager.terminate()
-	disconnect(g_game, { onGameStart = ScriptsManager.online,
-						 onGameEnd = ScriptsManager.offline})
-					   
+function ScriptsManager.terminate()						 
+	for i,v in pairs(scriptsManagerPanel:getChildren()) do
+		if v.scriptId then
+			local checkbox = v:getChildById('statusCheck')
+			ScriptsManager.scriptBoxSet(checkbox, false)
+		end
+	end
+
 	scriptsManagerButton:destroy()
 	scriptsManagerButton = nil
 	scriptsManagerWindow:destroy()
 	scriptsManagerWindow = nil
 	scriptsManagerPanel:destroy()
-	scriptsManagerPanel = nil
-
-	for i,v in pairs(scriptsManagerEvents) do
-		removeEvent(v)
-	end
+	scriptsManagerPanel = nil	
 	scriptsManagerEvents = {}
 end
 
@@ -62,14 +61,6 @@ function ScriptsManager.popupMenu()
 	end
 
 	scriptsManagerPopup:display(g_window.getMousePosition())
-end
-
-function ScriptsManager.online()
-  
-end
-
-function ScriptsManager.offline()  
-  
 end
 
 function ScriptsManager.show()
@@ -126,6 +117,27 @@ function ScriptsManager.close()
 	ScriptsManager.hide()
 end
 
+function ScriptsManager.call(func)
+	local data = {func = nil, args = {}, name = "", ret = nil}
+	local _hook = debug.gethook()
+	local hook = function(...)
+		local info = debug.getinfo(4)
+		if info.name ~= "pcall" then return end
+		data.func = debug.getinfo(2).func
+		data.name = debug.getinfo(2).name
+		for i = 1, math.huge do
+			local name, value = debug.getlocal(2, i)
+			if name == "(*temporary)" then return end
+			table.insert(data.args, {name = name,value = value})
+		end
+	end
+	debug.sethook(hook, "c")
+	local success, ret = pcall(func)
+	data.ret = ret
+	debug.sethook(_hook)
+	return data
+end
+
 function ScriptsManager.scriptBoxSet(widget, option)	
 	local id = widget:getParent().scriptId
 	local listasWidget = scriptsManagerPanel:getChildById('script_' .. id):getChildById('listasText')
@@ -136,7 +148,7 @@ function ScriptsManager.scriptBoxSet(widget, option)
 		if script ~= '' then
 			local ret = loadstring("return " .. script)
 			if type(ret) == "function" then
-				scriptsManagerEvents[id] = ret()
+				scriptsManagerEvents[id] = ScriptsManager.call(ret)
 			else
 				displayErrorBox("Scripts Manager", "Error script #".. id .." could not be run.")
 				option = false
@@ -153,7 +165,13 @@ function ScriptsManager.scriptBoxSet(widget, option)
 		listasWidget:enable()
 		scriptWidget:enable()
 		if scriptsManagerEvents[id] then
-			removeEvent(scriptsManagerEvents[id])
+			if scriptsManagerEvents[id].func == cycleEvent then
+				removeEvent(scriptsManagerEvents[id].ret)
+			elseif scriptsManagerEvents[id].func == g_keyboard.bindKeyPress then
+				g_keyboard.unbindKeyPress(scriptsManagerEvents[id].args[1].value)
+			elseif scriptsManagerEvents[id].func == onTalkContains then
+				disconnect(g_game, {onTalk = scriptsManagerEvents[id].ret})
+			end
 			scriptsManagerEvents[id] = nil
 		end
 	end
