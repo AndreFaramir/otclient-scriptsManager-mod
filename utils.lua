@@ -1,7 +1,7 @@
 -- this file should contains only functions to improve scripting experience
 function onTalkContains(msg, callback)
 	local function onTalk(name, level, mode, message, channelId, creaturePos)
-		if message:find(msg) then
+		if message:lower():find(msg:lower()) then
 			callback(name, level, mode, message, channelId, creaturePos)
 		end
 	end

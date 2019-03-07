@@ -117,25 +117,30 @@ function ScriptsManager.close()
 	ScriptsManager.hide()
 end
 
+function ScriptsManager.hookTemplate(funcHook, funcName, ...)
+	return {func = funcHook, args = {...}, name = funcName, ret = funcHook(...)}
+end
+
+function ScriptsManager.hook()
+	_cycleEvent = cycleEvent
+	cycleEvent = function(...) return ScriptsManager.hookTemplate(_cycleEvent, "cycleEvent", ...) end
+	_onTalkContains = onTalkContains
+	onTalkContains = function(...) return ScriptsManager.hookTemplate(_onTalkContains, "onTalkContains", ...) end
+	_bindKeyPress = g_keyboard.bindKeyPress
+	g_keyboard.bindKeyPress = function(...) return ScriptsManager.hookTemplate(_bindKeyPress, "g_keyboard.bindKeyPress", ...) end
+end
+
+function ScriptsManager.unhook()
+	cycleEvent = _cycleEvent
+	onTalkContains = _onTalkContains
+	g_keyboard.bindKeyPress = _bindKeyPress
+end
+
 function ScriptsManager.call(func)
-	local data = {func = nil, args = {}, name = "", ret = nil}
-	local _hook = debug.gethook()
-	local hook = function(...)
-		local info = debug.getinfo(4)
-		if info.name ~= "pcall" then return end
-		data.func = debug.getinfo(2).func
-		data.name = debug.getinfo(2).name
-		for i = 1, math.huge do
-			local name, value = debug.getlocal(2, i)
-			if name == "(*temporary)" then return end
-			table.insert(data.args, {name = name,value = value})
-		end
-	end
-	debug.sethook(hook, "c")
+	ScriptsManager.hook()
 	local success, ret = pcall(func)
-	data.ret = ret
-	debug.sethook(_hook)
-	return data
+	ScriptsManager.unhook()
+	return ret
 end
 
 function ScriptsManager.scriptBoxSet(widget, option)	
@@ -157,6 +162,11 @@ function ScriptsManager.scriptBoxSet(widget, option)
 			if scriptsManagerEvents[id] == nil then
 				option = false
 			end
+
+			if option then
+				listasWidget:disable()
+				scriptWidget:disable()
+			end
 		else
 			option = false
 			displayErrorBox("Script Manager", "Error script #".. id .." is empty.")
@@ -168,7 +178,7 @@ function ScriptsManager.scriptBoxSet(widget, option)
 			if scriptsManagerEvents[id].func == cycleEvent then
 				removeEvent(scriptsManagerEvents[id].ret)
 			elseif scriptsManagerEvents[id].func == g_keyboard.bindKeyPress then
-				g_keyboard.unbindKeyPress(scriptsManagerEvents[id].args[1].value)
+				g_keyboard.unbindKeyPress(scriptsManagerEvents[id].args[1], scriptsManagerEvents[id].args[2])
 			elseif scriptsManagerEvents[id].func == onTalkContains then
 				disconnect(g_game, {onTalk = scriptsManagerEvents[id].ret})
 			end
