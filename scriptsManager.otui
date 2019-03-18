@@ -38,7 +38,7 @@ ScriptBox < Panel
 MainWindow
   id: scriptsManagerWindow
   text: Scripts Manager v0.2
-  size: 700 550
+  size: 800 550
   @onClose: ScriptsManager.close()
 
   Label
@@ -59,7 +59,7 @@ MainWindow
 
   Label
     id: scriptLabel
-    text: Script (currently supported: cycleEvent, g_keyboard.bindKeyPress, onTalkContains)
+    text: Script (supported: cycleEvent, g_keyboard.bindKeyPress, onTalkContains, onScriptCallback)
     text-auto-resize: true
     margin-left: 70
     anchors.top: prev.top

@@ -9,6 +9,20 @@ function onTalkContains(msg, callback)
 	return onTalk
 end
 
+function onScriptCallback(initFunc, terminateFunc, file)
+	if file then
+		if type(file) ~= "string" then 
+			error("file parameter must be a string")	
+		end
+		dofile(file)
+	end
+	if type(initFunc) ~= "function" or type(terminateFunc) ~= "function" then
+		error("initFunc and terminateFunc must be a function") 
+	end
+	ScriptsManager.unhook() -- avoid getting data from functions called by initFunc
+	return initFunc()
+end
+
 function sendEquipItem(id)
 	local protocol = g_game.getProtocolGame()
 	local msg = OutputMessage.create()

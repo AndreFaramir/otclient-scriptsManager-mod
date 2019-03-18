@@ -37,12 +37,12 @@ function ScriptsManager.terminate()
 		end
 	end
 
+	scriptsManagerPanel:destroy()
+	scriptsManagerPanel = nil
 	scriptsManagerButton:destroy()
 	scriptsManagerButton = nil
 	scriptsManagerWindow:destroy()
-	scriptsManagerWindow = nil
-	scriptsManagerPanel:destroy()
-	scriptsManagerPanel = nil	
+	scriptsManagerWindow = nil	
 	scriptsManagerEvents = {}
 	scriptsManagerLastId = 0
 end
@@ -105,7 +105,7 @@ function ScriptsManager.load()
 				if v.scriptId then
 					local sObj = obj[tostring(v.scriptId)]
 					if sObj then
-						v:getChildById('listasText'):setText(sObj.listas)
+						v:getChildById('listasText'):setText(sObj.listas)					
 						v:getChildById('scriptText'):setText(sObj.script)
 					end
 				end
@@ -115,26 +115,19 @@ function ScriptsManager.load()
 end
 
 -- script's execution functions
-local hookFunctions = {"cycleEvent", {"_bindKeyPress","g_keyboard.bindKeyPress"}, "onTalkContains"}
+local hookFunctions = {"cycleEvent", "g_keyboard.bindKeyPress", "onTalkContains", "onScriptCallback"}
 function ScriptsManager.hook()
-	for i,fname in pairs(hookFunctions) do
-		if type(fname) == "table" then
-			loadstring(fname[1] .. " = " .. fname[2])()
-			loadstring(fname[2] .. " = function(...) scriptsManagerEvents[scriptsManagerLastId] = {func = ".. fname[1] ..", args = {...}, name = \"".. fname[2] .."\", ret = ".. fname[1] .."(...)} end")()
-		else
-			loadstring("_" .. fname .. " = " .. fname)()
-			loadstring(fname .. " = function(...) scriptsManagerEvents[scriptsManagerLastId] = {func = _".. fname ..", args = {...}, name = \"".. fname .."\", ret = _".. fname .."(...)} end")()
-		end
+	for i,fName in pairs(hookFunctions) do
+		local hfName = "_"..fName:gsub("%.","%_")
+		loadstring(hfName .. " = " .. fName)()
+		loadstring(fName .. " = function(...) scriptsManagerEvents[scriptsManagerLastId] = {func = ".. hfName ..", args = {...}, name = \"".. fName .."\", ret = ".. hfName .."(...)} end")()
 	end
 end
 
 function ScriptsManager.unhook()
-	for i,fname in pairs(hookFunctions) do
-		if type(fname) == "table" then
-			loadstring(fname[2] .. " = " .. fname[1])()
-		else
-			loadstring(fname .. " = _" .. fname)()
-		end
+	for i,fName in pairs(hookFunctions) do
+		local hfName = "_"..fName:gsub("%.","%_")
+		loadstring(fName .. " = " .. hfName)()
 	end
 end
 
@@ -190,6 +183,8 @@ function ScriptsManager.scriptBoxSet(widget, option)
 				g_keyboard.unbindKeyPress(scriptsManagerEvents[id].args[1], scriptsManagerEvents[id].args[2])
 			elseif scriptsManagerEvents[id].func == onTalkContains then
 				disconnect(g_game, {onTalk = scriptsManagerEvents[id].ret})
+			elseif scriptsManagerEvents[id].func == onScriptCallback then
+				pcall(scriptsManagerEvents[id].args[2])
 			end
 			scriptsManagerEvents[id] = nil
 		end
